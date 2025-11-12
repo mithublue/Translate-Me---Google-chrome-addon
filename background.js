@@ -13,23 +13,47 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "intelligentTranslate" && info.selectionText) {
     const selectedText = info.selectionText;
 
-    // --- Intelligent Language Detection Logic ---
-    
-    // This Regex matches the Unicode range for Bengali characters
-    const banglaRegex = /[\u0980-\u09FF]/;
+    // --- Enhanced Intelligent Language Detection Logic ---
+
+    // Unicode range for Bengali characters (U+0980 to U+09FF)
+    const banglaRegex = /[\u0980-\u09FF]/g;
+    const englishRegex = /[a-zA-Z]/g;
 
     let sourceLang = 'en'; // Default source language
     let targetLang = 'bn'; // Default target language
 
-    // test() checks if any Bengali character exists in the selected text
-    if (banglaRegex.test(selectedText)) {
-      // If Bengali found, set source to Bengali (bn) and target to English (en)
+    // Count characters for each language to determine dominant language
+    const banglaMatches = selectedText.match(banglaRegex) || [];
+    const englishMatches = selectedText.match(englishRegex) || [];
+
+    const banglaCount = banglaMatches.length;
+    const englishCount = englishMatches.length;
+    const totalLangChars = banglaCount + englishCount;
+
+    // Use case 1: Dominant Bengali text (or mixed with Bengali majority)
+    // Example: "আমি ভালো আছি", "আমি well আছি" (mixed but Bengali dominant)
+    if (banglaCount > englishCount) {
       sourceLang = 'bn';
       targetLang = 'en';
     }
-    // If no Bengali found, the default (en -> bn) will be used
-
-    // --- End of Logic ---
+    // Use case 2: Dominant English text
+    // Example: "I am fine", "I am ভালো" (mixed but English dominant)
+    else if (englishCount > banglaCount) {
+      sourceLang = 'en';
+      targetLang = 'bn';
+    }
+    // Use case 3: Equal mix or no language characters detected
+    // Example: "123", "😊", "###", or perfect 50/50 mix (rare)
+    // Let Google auto-detect for best results
+    else if (totalLangChars === 0 || banglaCount === englishCount) {
+      sourceLang = 'auto';
+      targetLang = 'bn'; // Default to Bengali for local users
+    }
+    // Use case 4: Fallback safety (should rarely reach here)
+    else {
+      sourceLang = 'auto';
+      targetLang = 'en';
+    }
 
     // Prepare the text for the URL (e.g., replace spaces with %20)
     const encodedText = encodeURIComponent(selectedText);
